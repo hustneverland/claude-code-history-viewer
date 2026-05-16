@@ -10,8 +10,9 @@ export function getProjectDisplayName(
     return fallbackName;
   }
   const segments = actualPath.split(/[\\/]/).filter((s) => s.length > 0);
-  if (segments.length === 0) {
+  const last = segments[segments.length - 1];
+  if (!last) {
     return fallbackName;
   }
-  return segments[segments.length - 1];
+  return last;
 }
