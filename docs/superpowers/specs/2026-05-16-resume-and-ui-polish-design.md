@@ -91,32 +91,46 @@ pub fn resume_claude_session(_: String, _: String) -> Result<(), String> {
 
 ### B. Frontend: Resume 按钮
 
+**既有基础设施**（不要重做）：
+- `src/utils/providers.ts` 已有 `getResumeCommand(provider, id)` 返回 `claude --resume <id>` 字符串
+- `useSessionEditing` hook 已经暴露 `supportsResumeCommand`, `handleCopyResumeCommand`
+- 右键菜单 `SessionContextMenu.tsx` 和悬浮 dropdown `SessionNameEditor.tsx` 已经有"Copy Resume Command"项
+
+**本次新增**：在已有"复制命令"项的旁边加一个"Launch in Claude Code"项（更直接：直接弹终端跑命令）。
+
 **新工具函数**：`src/utils/sessionResume.ts`
 
 ```ts
-export async function resumeClaudeSession(
+export async function launchClaudeSessionInTerminal(
   projectPath: string,
   sessionId: string
 ): Promise<void>;
 ```
 
-内部 `invoke('resume_claude_session', { projectPath, sessionId })`，错误统一抛 `ResumeError`，调用方负责 toast。
+内部 `invoke('resume_claude_session', { projectPath, sessionId })`。错误透传，调用方负责 toast。
 
-**改动文件**：`src/components/SessionItem/components/SessionHeader.tsx`
+**Hook 改动**：`src/components/SessionItem/hooks/useSessionEditing.ts`
+- 新增 `handleLaunchInTerminal: (e: React.MouseEvent) => void`
+- 从 `useSessionEditing()` 返回值额外暴露：`handleLaunchInTerminal`
+- 复用现有 `supportsResumeCommand` 判定（claude / forgecode 为 true，但只有 claude 真的能启）—— 见下条
+- 新增 capability `supportsLaunchInTerminal`（仅 `claude` 为 true），加在 `PROVIDER_SESSION_CAPABILITIES` 表里
 
-- 在已有操作区（重命名 / 删除附近）加 `▶ 继续` 按钮
-- 仅当 `session.provider === 'claude'` 时渲染
-- 点击：调 `resumeClaudeSession`，成功 toast `提示：已在新窗口打开`，失败 toast 错误信息
-- 按钮 `aria-label` 必填，i18n 走 `t('session.resumeInClaudeCode')`
+**UI 入口**：
+1. `SessionContextMenu.tsx`（右键菜单）：在 `supportsResumeCommand` 块下方加一个 `supportsLaunchInTerminal` 块，菜单项文案 "Launch in Claude Code"（i18n `session.launchInClaudeCode`），icon 用 `Rocket`（lucide）
+2. `SessionNameEditor.tsx`（hover dropdown）：同位置同样追加一项
+
+主体不在 SessionItem 主区域增加显眼按钮（避免视觉拥挤）；要更显眼时哥哥可以走右键菜单或 ⋮ 按钮。
+
+**i18n 新增键**（仅本次新增；复制命令的 `session.copyResumeCommand` 已存在不动）。
 
 **i18n 新增键**（5 种语言全加）：
 
 | key | en | ko | ja | zh-CN | zh-TW |
 |---|---|---|---|---|---|
-| `session.resumeInClaudeCode` | Resume in Claude Code | Claude Code에서 이어하기 | Claude Code で続行 | 在 Claude Code 中继续 | 在 Claude Code 中繼續 |
-| `session.resumeSuccess` | Opened new terminal | 새 터미널을 열었습니다 | 新しいターミナルを開きました | 已在新窗口打开 | 已在新視窗開啟 |
-| `session.resumeError` | Failed to start terminal | 터미널 실행 실패 | ターミナル起動失敗 | 启动终端失败 | 啟動終端失敗 |
-| `session.resumeUnsupportedPlatform` | Only Windows is supported | Windows에서만 지원됨 | Windows のみサポート | 仅支持 Windows | 僅支援 Windows |
+| `session.launchInClaudeCode` | Launch in Claude Code | Claude Code 에서 실행 | Claude Code で起動 | 在 Claude Code 中启动 | 在 Claude Code 中啟動 |
+| `session.launchSuccess` | Opened new terminal | 새 터미널을 열었습니다 | 新しいターミナルを開きました | 已在新窗口打开 | 已在新視窗開啟 |
+| `session.launchError` | Failed to start terminal | 터미널 실행 실패 | ターミナル起動失敗 | 启动终端失败 | 啟動終端失敗 |
+| `session.launchUnsupportedPlatform` | Only Windows is supported | Windows에서만 지원됨 | Windows のみサポート | 仅支持 Windows | 僅支援 Windows |
 
 文件归属：放在 `locales/<lang>/session.json`。
 
@@ -169,10 +183,11 @@ export function getProjectDisplayName(
 
 **改动文件**：`src/layouts/Header/Header.tsx`
 
-- 左上角双行（标题"Claude Code History Viewer" + 副标题"探索和分析您的 Claude Code 对话历史"）→ 单行只保留标题
-- 副标题信息密度低，去掉腾出垂直空间
+具体改动：line ~118-126 的副标题区——当前在未选 session 时显示 `{t('common.appDescription')}` 作为第二行。改为：
+- 没选 session 时 → 不渲染第二行（删 `<p>{t('common.appDescription')}</p>`）
+- 选了 session 时 → 保持现状（显示 session summary）
 
-不动：右上角搜索框、归档按钮、过滤器、设置图标。
+不动：左上角主标题与项目路径分隔符；右上角搜索框、导航按钮区、设置 dropdown。
 
 ## Data Flow
 
@@ -190,12 +205,14 @@ resume_claude_session (Rust)
 
 ## Error Handling
 
-| 错误码 | 触发 | 前端表现 |
+后端返回 `Err(String)`，前端按 prefix 解析为 toast：
+
+| 错误前缀 | 触发 | 前端 toast |
 |---|---|---|
-| `RESUME_INVALID_SESSION_ID` | session_id 不匹配白名单 | toast: "Invalid session id" |
-| `RESUME_PATH_NOT_FOUND` | project_path 不存在 | toast: "Project path no longer exists" |
-| `RESUME_SPAWN_FAILED` | `Command::spawn` 失败 | toast: "启动终端失败" + 详细原因 |
-| `RESUME_UNSUPPORTED_PLATFORM` | 非 Windows | toast: "仅支持 Windows" |
+| `INVALID_SESSION_ID` | session_id 不匹配 `^[A-Za-z0-9_-]+$` | "Invalid session id" |
+| `PATH_NOT_FOUND` | project_path 不存在或不是目录 | "Project path no longer exists" |
+| `SPAWN_FAILED:<原因>` | `Command::spawn` 失败 | `session.launchError` + 原因明文 |
+| `UNSUPPORTED_PLATFORM` | 非 Windows | `session.launchUnsupportedPlatform` |
 
 ## Security
 
@@ -221,11 +238,9 @@ resume_claude_session (Rust)
 
 `src/utils/__tests__/pathDisplay.test.ts` 单测同上 C1。
 
-`src/components/SessionItem/components/__tests__/SessionHeader.resume.test.tsx`：
-- 仅 Claude provider 显示按钮
-- 其他 provider 不显示
-- 点击调用 `resumeClaudeSession`
-- 错误时显示对应 toast
+`src/test/useSessionEditing.test.tsx` 扩展：
+- 新增对 `handleLaunchInTerminal` 的测试：仅 claude provider 时被允许；其他 provider 调用应静默不发起请求
+- 错误回流时 hook 状态正常
 
 跑：`pnpm vitest run`
 
