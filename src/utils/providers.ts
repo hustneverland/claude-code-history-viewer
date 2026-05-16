@@ -24,6 +24,7 @@ export interface ProviderSessionCapability {
   supportsConversationBreakdown: boolean;
   supportsNativeRename: boolean;
   supportsResumeCommand: boolean;
+  supportsLaunchInTerminal: boolean;
   supportsSessionDeletion: boolean;
   supportsArchiveCreation: boolean;
 }
@@ -33,6 +34,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -40,6 +42,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: true,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -47,6 +50,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: true,
     supportsNativeRename: true,
     supportsResumeCommand: true,
+    supportsLaunchInTerminal: true,
     supportsSessionDeletion: true,
     supportsArchiveCreation: true,
   },
@@ -54,6 +58,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -61,6 +66,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -68,6 +74,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -75,6 +82,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: true,
     supportsNativeRename: true,
     supportsResumeCommand: true,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: true,
     supportsArchiveCreation: false,
   },
@@ -82,6 +90,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: false,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -89,6 +98,7 @@ const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapabilit
     supportsConversationBreakdown: false,
     supportsNativeRename: true,
     supportsResumeCommand: false,
+    supportsLaunchInTerminal: false,
     supportsSessionDeletion: false,
     supportsArchiveCreation: false,
   },
@@ -201,6 +211,13 @@ export function supportsArchiveCreation(provider?: ProviderId | string): boolean
     return false;
   }
   return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId].supportsArchiveCreation;
+}
+
+export function supportsLaunchInTerminal(provider?: ProviderId | string): boolean {
+  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
+    return false;
+  }
+  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId].supportsLaunchInTerminal;
 }
 
 export const PROVIDER_BADGE_STYLES: Record<ProviderId, string> = {
