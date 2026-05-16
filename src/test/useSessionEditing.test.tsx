@@ -3,7 +3,13 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { useSessionEditing } from "@/components/SessionItem/hooks/useSessionEditing";
+import { launchClaudeSessionInTerminal } from "@/utils/sessionResume";
+import { useAppStore } from "@/store/useAppStore";
 import type { ClaudeSession } from "@/types";
+
+vi.mock("@/utils/sessionResume", () => ({
+  launchClaudeSessionInTerminal: vi.fn(),
+}));
 
 vi.mock("react-i18next", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-i18next")>();
@@ -172,5 +178,87 @@ describe("useSessionEditing clipboard actions", () => {
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(toast.success).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith("Copy failed");
+  });
+});
+
+describe("useSessionEditing handleLaunchInTerminal", () => {
+  beforeEach(() => {
+    vi.mocked(launchClaudeSessionInTerminal).mockReset();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    useAppStore.setState({
+      selectedProject: {
+        actual_path: "D:\\github\\demo",
+        name: "demo",
+        path: "demo",
+        provider: "claude",
+        session_count: 1,
+      } as unknown as ReturnType<typeof useAppStore.getState>["selectedProject"],
+    });
+  });
+
+  it("invokes launchClaudeSessionInTerminal with project path + session id for claude", async () => {
+    vi.mocked(launchClaudeSessionInTerminal).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useSessionEditing(session));
+
+    await act(async () => {
+      await result.current.handleLaunchInTerminal({
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent);
+    });
+
+    expect(launchClaudeSessionInTerminal).toHaveBeenCalledWith(
+      "D:\\github\\demo",
+      "actual-session-id"
+    );
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("does nothing for providers without launch capability", async () => {
+    const codexSession: ClaudeSession & { provider: string; is_renamed: boolean } = {
+      ...session,
+      provider: "codex",
+    };
+    const { result } = renderHook(() => useSessionEditing(codexSession));
+
+    await act(async () => {
+      await result.current.handleLaunchInTerminal({
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent);
+    });
+
+    expect(launchClaudeSessionInTerminal).not.toHaveBeenCalled();
+  });
+
+  it("surfaces UNSUPPORTED_PLATFORM error as localized toast", async () => {
+    vi.mocked(launchClaudeSessionInTerminal).mockRejectedValueOnce(
+      new Error("UNSUPPORTED_PLATFORM")
+    );
+    const { result } = renderHook(() => useSessionEditing(session));
+
+    await act(async () => {
+      await result.current.handleLaunchInTerminal({
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("Only Windows is supported");
+  });
+
+  it("surfaces SPAWN_FAILED reason as description", async () => {
+    vi.mocked(launchClaudeSessionInTerminal).mockRejectedValueOnce(
+      new Error("SPAWN_FAILED:powershell not in PATH")
+    );
+    const { result } = renderHook(() => useSessionEditing(session));
+
+    await act(async () => {
+      await result.current.handleLaunchInTerminal({
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("Failed to start terminal", {
+      description: "powershell not in PATH",
+    });
   });
 });
