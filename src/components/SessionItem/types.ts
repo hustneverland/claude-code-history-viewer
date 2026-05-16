@@ -25,6 +25,7 @@ export interface SessionNameEditorProps {
   providerId: string;
   supportsNativeRename: boolean;
   supportsResumeCommand: boolean;
+  supportsLaunchInTerminal: boolean;
   supportsSessionDeletion: boolean;
   supportsRevealInFinder: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -39,6 +40,7 @@ export interface SessionNameEditorProps {
   onNativeRenameClick: (e: React.MouseEvent) => void;
   onCopySessionId: (e: React.MouseEvent) => void;
   onCopyResumeCommand: (e: React.MouseEvent) => void;
+  onLaunchInTerminal: (e: React.MouseEvent) => void;
   onCopyFilePath: (e: React.MouseEvent) => void;
   onRevealInFinder: (e: React.MouseEvent) => void;
   onDeleteSession: (e: React.MouseEvent) => void;

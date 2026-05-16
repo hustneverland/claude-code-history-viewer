@@ -8,6 +8,7 @@ import {
   FileText,
   FolderOpen,
   Play,
+  Rocket,
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +20,7 @@ interface SessionContextMenuProps {
   hasCustomName: boolean;
   supportsNativeRename: boolean;
   supportsResumeCommand: boolean;
+  supportsLaunchInTerminal: boolean;
   supportsSessionDeletion: boolean;
   supportsRevealInFinder: boolean;
   providerId: string;
@@ -28,6 +30,7 @@ interface SessionContextMenuProps {
   onNativeRenameClick: (e: React.MouseEvent) => void;
   onCopySessionId: (e: React.MouseEvent) => void;
   onCopyResumeCommand: (e: React.MouseEvent) => void;
+  onLaunchInTerminal: (e: React.MouseEvent) => void;
   onCopyFilePath: (e: React.MouseEvent) => void;
   onRevealInFinder: (e: React.MouseEvent) => void;
   onDeleteSession: (e: React.MouseEvent) => void;
@@ -38,6 +41,7 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
   hasCustomName,
   supportsNativeRename,
   supportsResumeCommand,
+  supportsLaunchInTerminal,
   supportsSessionDeletion,
   supportsRevealInFinder,
   providerId,
@@ -47,6 +51,7 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
   onNativeRenameClick,
   onCopySessionId,
   onCopyResumeCommand,
+  onLaunchInTerminal,
   onCopyFilePath,
   onRevealInFinder,
   onDeleteSession,
@@ -178,6 +183,13 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
           <button type="button" role="menuitem" onClick={handleAction(onCopyResumeCommand)} className={menuItemClass}>
             <Play className="w-3.5 h-3.5" />
             <span>{t("session.copyResumeCommand", "Copy Resume Command")}</span>
+          </button>
+        )}
+
+        {supportsLaunchInTerminal && (
+          <button type="button" role="menuitem" onClick={handleAction(onLaunchInTerminal)} className={menuItemClass}>
+            <Rocket className="w-3.5 h-3.5" />
+            <span>{t("session.launchInClaudeCode", "Launch in Claude Code")}</span>
           </button>
         )}
 

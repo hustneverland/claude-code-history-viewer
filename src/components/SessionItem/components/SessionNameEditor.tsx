@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   Play,
+  Rocket,
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -40,6 +41,7 @@ export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
   providerId,
   supportsNativeRename,
   supportsResumeCommand,
+  supportsLaunchInTerminal,
   supportsSessionDeletion,
   supportsRevealInFinder,
   inputRef,
@@ -54,6 +56,7 @@ export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
   onNativeRenameClick,
   onCopySessionId,
   onCopyResumeCommand,
+  onLaunchInTerminal,
   onCopyFilePath,
   onRevealInFinder,
   onDeleteSession,
@@ -229,6 +232,12 @@ export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
             <DropdownMenuItem onClick={onCopyResumeCommand}>
               <Play className="w-3 h-3 mr-2" />
               {t("session.copyResumeCommand", "Copy Resume Command")}
+            </DropdownMenuItem>
+          )}
+          {supportsLaunchInTerminal && (
+            <DropdownMenuItem onClick={onLaunchInTerminal}>
+              <Rocket className="w-3 h-3 mr-2" />
+              {t("session.launchInClaudeCode", "Launch in Claude Code")}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={onCopyFilePath}>
