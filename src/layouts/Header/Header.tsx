@@ -121,9 +121,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
               {selectedSession.summary ||
                 `${t("session.title")} ${selectedSession.session_id.slice(-8)}`}
             </p>
-          ) : (
-            <p className="text-2xs text-muted-foreground hidden md:block">{t('common.appDescription')}</p>
-          )}
+          ) : null}
         </div>
       </div>
 
