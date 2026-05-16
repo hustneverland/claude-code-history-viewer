@@ -10,10 +10,12 @@ import { api } from "@/services/api";
 import { isAbsolutePath } from "@/utils/pathUtils";
 import {
   getResumeCommand,
+  supportsLaunchInTerminal as providerSupportsLaunchInTerminal,
   supportsNativeRename as providerSupportsNativeRename,
   supportsResumeCommand as providerSupportsResumeCommand,
   supportsSessionDeletion as providerSupportsSessionDeletion,
 } from "@/utils/providers";
+import { launchClaudeSessionInTerminal } from "@/utils/sessionResume";
 import type { ClaudeSession } from "@/types";
 
 function legacyCopy(text: string): void {
@@ -55,6 +57,7 @@ export function useSessionEditing(session: ClaudeSession) {
   const providerId = session.provider ?? "claude";
   const supportsNativeRename = providerSupportsNativeRename(providerId);
   const supportsResumeCommand = providerSupportsResumeCommand(providerId);
+  const supportsLaunchInTerminal = providerSupportsLaunchInTerminal(providerId);
   const supportsSessionDeletion = providerSupportsSessionDeletion(providerId);
   const supportsRevealInFinder = isAbsolutePath(session.file_path);
   const isArchivedCodexSession =
@@ -205,6 +208,45 @@ export function useSessionEditing(session: ClaudeSession) {
     [handleCopyToClipboard, providerId, session.actual_session_id, t]
   );
 
+  const handleLaunchInTerminal = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsContextMenuOpen(false);
+      if (!supportsLaunchInTerminal) {
+        return;
+      }
+      const projectPath = useAppStore.getState().selectedProject?.actual_path;
+      if (!projectPath) {
+        toast.error(t("session.launchError", "Failed to start terminal"));
+        return;
+      }
+      try {
+        await launchClaudeSessionInTerminal(projectPath, session.actual_session_id);
+        toast.success(t("session.launchSuccess", "Opened new terminal"));
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        if (raw === "UNSUPPORTED_PLATFORM") {
+          toast.error(
+            t("session.launchUnsupportedPlatform", "Only Windows is supported")
+          );
+          return;
+        }
+        let description = raw;
+        if (raw === "PATH_NOT_FOUND") {
+          description = "Project path no longer exists";
+        } else if (raw === "INVALID_SESSION_ID") {
+          description = "Invalid session id";
+        } else if (raw.startsWith("SPAWN_FAILED:")) {
+          description = raw.slice("SPAWN_FAILED:".length);
+        }
+        toast.error(t("session.launchError", "Failed to start terminal"), {
+          description,
+        });
+      }
+    },
+    [session.actual_session_id, supportsLaunchInTerminal, t]
+  );
+
   const handleCopyFilePath = useCallback(
     (e: React.MouseEvent) =>
       handleCopyToClipboard(
@@ -328,6 +370,7 @@ export function useSessionEditing(session: ClaudeSession) {
     providerId,
     supportsNativeRename,
     supportsResumeCommand,
+    supportsLaunchInTerminal,
     supportsSessionDeletion,
     supportsRevealInFinder,
     isArchivedCodexSession,
@@ -346,6 +389,7 @@ export function useSessionEditing(session: ClaudeSession) {
     handleRenameClick,
     handleCopySessionId,
     handleCopyResumeCommand,
+    handleLaunchInTerminal,
     handleCopyFilePath,
     handleRevealInFinder,
     handleDeleteSession,
