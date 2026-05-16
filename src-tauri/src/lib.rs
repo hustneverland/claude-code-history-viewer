@@ -41,6 +41,7 @@ use crate::commands::{
         detect_claude_config_dir, get_claude_folder_path, get_git_log, scan_projects,
         validate_claude_folder, validate_custom_claude_dir,
     },
+    resume::resume_claude_session,
     session::{
         delete_session, get_recent_edits, get_session_message_count, get_session_subagents,
         load_project_sessions, load_session_messages, load_session_messages_paginated,
@@ -241,7 +242,9 @@ fn run_tauri() {
             // Antigravity token-monitor commands
             load_antigravity_state,
             get_antigravity_session,
-            get_antigravity_project_summary
+            get_antigravity_project_summary,
+            // Resume Claude Code session in new terminal (Windows only)
+            resume_claude_session
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
