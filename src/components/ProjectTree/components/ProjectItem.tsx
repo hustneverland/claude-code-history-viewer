@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { ProjectItemProps } from "../types";
 import { getWorktreeLabel } from "../../../utils/worktreeUtils";
+import { getProjectDisplayName } from "../../../utils/pathDisplay";
 import { getProviderId, getProviderLabel } from "../../../utils/providers";
 
 export const ProjectItem: React.FC<ProjectItemProps> = ({
@@ -29,7 +30,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
     ? t("project.main", "main")
     : isWorktree
       ? getWorktreeLabel(project.actual_path)
-      : project.name;
+      : getProjectDisplayName(project.actual_path, project.name);
 
   const providerId = getProviderId(project.provider);
   const baseProviderLabel = getProviderLabel(
@@ -67,8 +68,8 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
         isGrouped ? "focus:ring-2 focus:ring-accent" : "focus:ring-2 focus:ring-accent",
         isGrouped
           ? "hover:bg-accent/10"
-          : "hover:bg-accent/8 hover:pl-5 border-l-2 border-transparent",
-        !isGrouped && isExpanded && "bg-accent/10 border-l-accent pl-5",
+          : "hover:bg-accent/8 border-l-2 border-transparent",
+        !isGrouped && isExpanded && "bg-accent/10 border-l-accent",
         isGrouped && isMain && "hover:bg-accent/10",
         isGrouped && isWorktree && "hover:bg-emerald-500/10",
         isGrouped && isExpanded && (isMain ? "bg-accent/15" : "bg-emerald-500/15")
