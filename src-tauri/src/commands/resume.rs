@@ -18,10 +18,7 @@ pub fn escape_powershell_single_quoted(s: &str) -> String {
 }
 
 #[tauri::command]
-pub fn resume_claude_session(
-    project_path: String,
-    session_id: String,
-) -> Result<(), String> {
+pub fn resume_claude_session(project_path: String, session_id: String) -> Result<(), String> {
     validate_session_id(&session_id)?;
 
     let path = Path::new(&project_path);
@@ -36,8 +33,7 @@ pub fn resume_claude_session(
 fn launch_claude_in_powershell(project_path: &str, session_id: &str) -> Result<(), String> {
     use std::process::Command;
     let escaped = escape_powershell_single_quoted(project_path);
-    let ps_command =
-        format!("Set-Location -LiteralPath '{escaped}'; claude --resume {session_id}");
+    let ps_command = format!("Set-Location -LiteralPath '{escaped}'; claude --resume {session_id}");
     Command::new("cmd")
         .args([
             "/c",
@@ -70,12 +66,15 @@ mod tests {
 
     #[test]
     fn validate_session_id_rejects_injection_attempts() {
-        for bad in &["", " ", "abc; rm -rf /", "../../etc", "id with space", "id&calc"] {
-            assert!(
-                validate_session_id(bad).is_err(),
-                "should reject {:?}",
-                bad
-            );
+        for bad in &[
+            "",
+            " ",
+            "abc; rm -rf /",
+            "../../etc",
+            "id with space",
+            "id&calc",
+        ] {
+            assert!(validate_session_id(bad).is_err(), "should reject {bad:?}");
         }
     }
 

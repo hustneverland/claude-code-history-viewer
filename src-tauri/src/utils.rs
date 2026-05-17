@@ -192,9 +192,13 @@ pub fn decode_project_path(session_storage_path: &str) -> String {
     }
 
     // 2. Fallback: decode from encoded directory name
+    // Normalize Windows '\' to '/' so the marker match works on both platforms.
+    let normalized = session_storage_path.replace('\\', "/");
     const MARKER: &str = ".claude/projects/";
-    if let Some(marker_pos) = session_storage_path.find(MARKER) {
-        let encoded = &session_storage_path[marker_pos + MARKER.len()..];
+    if let Some(marker_pos) = normalized.find(MARKER) {
+        let encoded = normalized[marker_pos + MARKER.len()..].trim_end_matches('/');
+
+        // Unix encoding: storage dir name starts with '-' representing the leading '/'.
         if let Some(stripped) = encoded.strip_prefix('-') {
             // Try filesystem-based decoding (recursive)
             if let Some(path) = decode_with_filesystem_check(stripped) {
@@ -211,8 +215,93 @@ pub fn decode_project_path(session_storage_path: &str) -> String {
                 return format!("/{}", parts[1]);
             }
         }
+
+        // Windows encoding: storage dir name starts with "<DriveLetter>-" representing "<DriveLetter>:".
+        // e.g. "D--github-claude-code-history-viewer" -> "D:\github\claude-code-history-viewer"
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(path) = decode_windows_encoded(encoded) {
+                return path;
+            }
+        }
     }
     session_storage_path.to_string()
+}
+
+/// Decode a Windows-encoded Claude project storage dir name.
+///
+/// Claude on Windows encodes the project root by replacing `:` and path separators
+/// with `-`. e.g. `D:\github\claude-code-history-viewer` is stored under the directory
+/// `D--github-claude-code-history-viewer` (first `-` is the colon, second is the
+/// path separator after the drive root, and the rest are ambiguous between path
+/// separators and literal hyphens — disambiguated via filesystem existence checks).
+#[cfg(target_os = "windows")]
+fn decode_windows_encoded(encoded: &str) -> Option<String> {
+    let mut chars = encoded.chars();
+    let drive = chars.next()?;
+    if !drive.is_ascii_alphabetic() {
+        return None;
+    }
+    let colon = chars.next()?;
+    if colon != '-' {
+        return None;
+    }
+
+    let after_colon = &encoded[2..];
+    let drive_upper = drive.to_ascii_uppercase();
+
+    if after_colon.is_empty() {
+        let root = format!("{drive_upper}:\\");
+        return Path::new(&root).is_dir().then_some(root);
+    }
+
+    // The leading '-' after the drive letter represents the path separator.
+    let path_part = after_colon.strip_prefix('-').unwrap_or(after_colon);
+    let base = format!("{drive_upper}:");
+    decode_recursive_windows_inner(path_part, &base, 0)
+}
+
+#[cfg(target_os = "windows")]
+fn decode_recursive_windows_inner(encoded: &str, base_path: &str, depth: usize) -> Option<String> {
+    if depth > 20 {
+        return None;
+    }
+    if encoded.is_empty() {
+        return Path::new(base_path).is_dir().then(|| base_path.to_string());
+    }
+
+    // Try the whole remaining encoded string as a single leaf segment first.
+    let direct = format!("{base_path}\\{encoded}");
+    if Path::new(&direct).is_dir() {
+        return Some(direct);
+    }
+
+    // Try each '-' as a path separator.
+    let hyphens: Vec<usize> = encoded
+        .char_indices()
+        .filter(|(_, c)| *c == '-')
+        .map(|(i, _)| i)
+        .collect();
+
+    for &pos in &hyphens {
+        let segment = &encoded[..pos];
+        if segment.is_empty() {
+            continue;
+        }
+        let candidate = format!("{base_path}\\{segment}");
+        if !Path::new(&candidate).is_dir() {
+            continue;
+        }
+        let remaining = &encoded[pos + 1..];
+        if remaining.is_empty() {
+            return Some(candidate);
+        }
+        if let Some(result) = decode_recursive_windows_inner(remaining, &candidate, depth + 1) {
+            return Some(result);
+        }
+    }
+
+    None
 }
 
 /// Decode path by checking filesystem existence at each possible split point
@@ -675,6 +764,32 @@ mod tests {
     #[test]
     fn test_decode_project_path_regular() {
         assert_eq!(decode_project_path("/some/other/path"), "/some/other/path");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_decode_windows_encoded_invalid_inputs() {
+        // First two chars must be ASCII letter + '-'.
+        assert!(decode_windows_encoded("").is_none());
+        assert!(decode_windows_encoded("nodrive").is_none());
+        assert!(decode_windows_encoded("Dxgithub").is_none());
+        assert!(decode_windows_encoded("--github").is_none());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_decode_windows_drive_root_only() {
+        // Encoding "<drive>-" should resolve to the drive root when it exists.
+        // Walk available drive letters and verify at least the system drive resolves.
+        let system_drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
+        let letter = system_drive
+            .chars()
+            .next()
+            .expect("SystemDrive should have a letter")
+            .to_ascii_uppercase();
+        let encoded = format!("{letter}-");
+        let decoded = decode_windows_encoded(&encoded);
+        assert_eq!(decoded, Some(format!("{letter}:\\")));
     }
 
     #[test]

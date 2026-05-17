@@ -1,6 +1,6 @@
 /**
- * 从绝对路径取最后一级目录名作为展示名。空 / 无可用段时回退到 fallbackName。
- * 同时识别 Windows ("\") 和 POSIX ("/") 分隔符。
+ * 优先用绝对路径（actualPath）作为左侧栏项目展示名，方便一眼看出项目位置。
+ * 路径缺失时回退到 fallbackName（旧 encode 形式或 worktree 标签）。
  */
 export function getProjectDisplayName(
   actualPath: string | null | undefined,
@@ -9,10 +9,5 @@ export function getProjectDisplayName(
   if (!actualPath || !actualPath.trim()) {
     return fallbackName;
   }
-  const segments = actualPath.split(/[\\/]/).filter((s) => s.length > 0);
-  const last = segments[segments.length - 1];
-  if (!last) {
-    return fallbackName;
-  }
-  return last;
+  return actualPath.trim();
 }
